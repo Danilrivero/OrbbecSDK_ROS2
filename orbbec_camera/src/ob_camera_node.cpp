@@ -2159,6 +2159,32 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                     frame_id_[base_stream_]);
   }
 
+  // Check for invalid transformations and log errors
+  auto checkAndPublishExtrinsic = [&](const char *frame_id, const OBExtrinsic &ex) {
+    for (const auto &value : ex.trans) {
+      if (!std::isfinite(value)) {
+        RCLCPP_ERROR_STREAM(logger_, "Invalid translation for " << frame_id << ": " << value);
+        return false;
+      }
+    }
+    auto Q = rotationMatrixToQuaternion(ex.rot);
+    for (const auto &value : {Q.getX(), Q.getY(), Q.getZ(), Q.getW()}) {
+      if (!std::isfinite(value)) {
+        RCLCPP_ERROR_STREAM(logger_, "Invalid rotation for " << frame_id << ": " << value);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  auto publishValidExtrinsic = [&](const char *frame_id, const OBExtrinsic &ex) {
+    if (checkAndPublishExtrinsic(frame_id, ex)) {
+      depth_to_other_extrinsics_[COLOR] = ex;
+      auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
+      depth_to_other_extrinsics_publishers_[COLOR]->publish(ex_msg);
+    }
+  };
+
   if (enable_stream_[DEPTH] && enable_stream_[COLOR]) {
     static const char *frame_id = "depth_to_color_extrinsics";
     OBExtrinsic ex;
@@ -2169,9 +2195,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                           "Failed to get " << frame_id << " extrinsic: " << e.getMessage());
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
-    depth_to_other_extrinsics_[COLOR] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[COLOR]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
   if (enable_stream_[DEPTH] && enable_stream_[INFRA0]) {
     static const char *frame_id = "depth_to_ir_extrinsics";
@@ -2183,9 +2207,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                           "Failed to get " << frame_id << " extrinsic: " << e.getMessage());
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
-    depth_to_other_extrinsics_[INFRA0] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[INFRA0]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
   if (enable_stream_[DEPTH] && enable_stream_[INFRA1]) {
     static const char *frame_id = "depth_to_left_ir_extrinsics";
@@ -2197,9 +2219,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                           "Failed to get " << frame_id << " extrinsic: " << e.getMessage());
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
-    depth_to_other_extrinsics_[INFRA1] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[INFRA1]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
   if (enable_stream_[DEPTH] && enable_stream_[INFRA2]) {
     static const char *frame_id = "depth_to_right_ir_extrinsics";
@@ -2212,9 +2232,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
     ex.trans[0] = -std::abs(ex.trans[0]);
-    depth_to_other_extrinsics_[INFRA2] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[INFRA2]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
   if (enable_stream_[DEPTH] && enable_stream_[ACCEL]) {
     static const char *frame_id = "depth_to_accel_extrinsics";
@@ -2226,9 +2244,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                           "Failed to get " << frame_id << " extrinsic: " << e.getMessage());
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
-    depth_to_other_extrinsics_[ACCEL] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[ACCEL]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
   if (enable_stream_[DEPTH] && enable_stream_[GYRO]) {
     static const char *frame_id = "depth_to_gyro_extrinsics";
@@ -2240,9 +2256,7 @@ void OBCameraNode::calcAndPublishStaticTransform() {
                           "Failed to get " << frame_id << " extrinsic: " << e.getMessage());
       ex = OBExtrinsic({{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}});
     }
-    depth_to_other_extrinsics_[GYRO] = ex;
-    auto ex_msg = obExtrinsicsToMsg(ex, frame_id);
-    depth_to_other_extrinsics_publishers_[GYRO]->publish(ex_msg);
+    publishValidExtrinsic(frame_id, ex);
   }
 }
 
